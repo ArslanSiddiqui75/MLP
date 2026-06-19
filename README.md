@@ -2,7 +2,7 @@
 
 A complete implementation of a multilayer perceptron (MLP) neural network trained on MNIST, spanning from NumPy-only backpropagation to a gorgeous interactive web interface.
 
-### **Backend: Pure Python Neural Network** 📊
+### **Backend: Pure Python Neural Network** 
 - **3-layer MLP** with ReLU hidden activations and softmax output
 - **From scratch**: forward pass, categorical cross-entropy loss, and backpropagation
 - **60,000 training samples** (MNIST) with mini-batch gradient descent
@@ -10,7 +10,7 @@ A complete implementation of a multilayer perceptron (MLP) neural network traine
 - Includes PyTorch gradient verification to validate correctness
 - Weights exported as JSON for inference
 
-### **Frontend: Interactive Drawing Canvas** ✨
+### **Frontend: Interactive Drawing Canvas** 
 - **Real-time digit prediction** as you draw on a 280×280 canvas
 - **Animated background particle system** with smooth gradients
 - **Pop animation** on prediction with particle burst at >80% confidence
