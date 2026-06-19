@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MLP Digit Classifier</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0a0a0a;--surface:#111;--border:#222;--border2:#333;
+  --text:#e8e8e8;--muted:#555;--accent:#00e5a0;--accent2:#00b87a;
+  --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem 1rem;}
+header{text-align:center;margin-bottom:3rem;}
+header .label{font-family:var(--mono);font-size:11px;letter-spacing:0.15em;color:var(--accent);text-transform:uppercase;margin-bottom:0.75rem;}
+header h1{font-size:clamp(1.6rem,4vw,2.4rem);font-weight:300;letter-spacing:-0.02em;}
+header h1 span{font-weight:500;}
+header p{font-size:13px;color:var(--muted);margin-top:0.5rem;font-family:var(--mono);}
+.main{display:flex;gap:3rem;align-items:flex-start;flex-wrap:wrap;justify-content:center;width:100%;max-width:780px;}
+.canvas-section{display:flex;flex-direction:column;gap:1rem;align-items:center;}
+.canvas-wrap{position:relative;}
+canvas#c{display:block;background:#000;border:1px solid var(--border2);border-radius:4px;cursor:crosshair;touch-action:none;}
+.canvas-grid{position:absolute;inset:0;pointer-events:none;border-radius:4px;background-image:linear-gradient(var(--border) 1px,transparent 1px),linear-gradient(90deg,var(--border) 1px,transparent 1px);background-size:20px 20px;opacity:0.3;}
+.btn-row{display:flex;gap:8px;width:100%;}
+button{font-family:var(--mono);font-size:12px;letter-spacing:0.05em;padding:8px 16px;border-radius:3px;cursor:pointer;border:1px solid var(--border2);background:transparent;color:var(--muted);transition:all 0.15s;}
+button:hover{color:var(--text);background:var(--surface);}
+button.run{flex:1;border-color:var(--accent2);color:var(--accent);background:rgba(0,229,160,0.05);}
+button.run:hover{background:rgba(0,229,160,0.12);}
+.hint{font-family:var(--mono);font-size:11px;color:var(--muted);text-align:center;}
+.results-section{flex:1;min-width:260px;display:flex;flex-direction:column;gap:1.5rem;}
+.prediction-box{border:1px solid var(--border2);border-radius:4px;padding:1.5rem;background:var(--surface);display:flex;align-items:center;gap:1.5rem;}
+.big-digit{font-family:var(--mono);font-size:72px;font-weight:600;line-height:1;color:var(--accent);min-width:60px;text-align:center;transition:all 0.2s;}
+.pred-conf{font-family:var(--mono);font-size:22px;font-weight:500;}
+.pred-sub{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:4px;letter-spacing:0.05em;}
+.bars-label{font-family:var(--mono);font-size:11px;letter-spacing:0.1em;color:var(--muted);text-transform:uppercase;margin-bottom:0.75rem;}
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.d-lbl{font-family:var(--mono);font-size:12px;color:var(--muted);width:14px;text-align:right;}
+.bar-track{flex:1;height:12px;background:var(--surface);border-radius:2px;overflow:hidden;border:1px solid var(--border);}
+.bar-fill{height:100%;border-radius:2px;width:0%;transition:width 0.25s cubic-bezier(.4,0,.2,1);background:var(--border2);}
+.bar-fill.top{background:var(--accent);}
+.pct-lbl{font-family:var(--mono);font-size:11px;color:var(--muted);width:38px;text-align:right;}
+.status-bar{font-family:var(--mono);font-size:11px;color:var(--muted);border-top:1px solid var(--border);padding-top:1rem;letter-spacing:0.03em;}
+.status-bar span{color:var(--accent);}
+footer{margin-top:3rem;font-family:var(--mono);font-size:14px;color:#00e5a0;text-align:center;letter-spacing:0.05em;}
+footer a{color:var(--muted);text-decoration:none;border-bottom:1px solid var(--border2);}
+</style>
+</head>
+<body>
+<header>
+
+  <h1>Number Prediction <span>Genie</span></h1>
+</header>
+<div class="main">
+  <div class="canvas-section">
+    <div class="canvas-wrap">
+      <canvas id="c" width="280" height="280"></canvas>
+      <div class="canvas-grid"></div>
+    </div>
+    <div class="btn-row">
+      <button class="clear" onclick="clearCanvas()">✕ Clear</button>
+      <button class="run" onclick="runInference()">▶ Predict</button>
+    </div>
+    <div class="hint">draw · predict · repeat</div>
+  </div>
+  <div class="results-section">
+    <div class="prediction-box">
+      <div class="big-digit" id="bigDigit">?</div>
+      <div class="pred-meta">
+        <div class="pred-conf" id="predConf">—</div>
+        <div class="pred-sub" id="predSub">AWAITING INPUT</div>
+      </div>
+    </div>
+    <div>
+      <div class="bars-label">Output probabilities</div>
+      <div id="barsContainer"></div>
+    </div>
+    <div class="status-bar" id="statusBar">STATUS &nbsp;→&nbsp; <span>ready</span></div>
+  </div>
+</div>
+<footer>  <b></b><div class="label">Don't know how to read Arabic numerals?</div>
+  
+  <div class="label">Issokay, I got you</div></footer>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+ctx.fillStyle = '#000'; ctx.fillRect(0,0,280,280);
+ctx.strokeStyle = '#fff'; ctx.lineWidth = 20; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+let drawing = false, lx = 0, ly = 0, autoTimer = null;
+
+function pos(e) {
+  const r = canvas.getBoundingClientRect();
+  if (e.touches) return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+canvas.addEventListener('mousedown', e => { drawing = true; const p = pos(e); lx = p.x; ly = p.y; });
+canvas.addEventListener('mousemove', e => {
+  if (!drawing) return;
+  const p = pos(e);
+  ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(p.x, p.y); ctx.stroke();
+  lx = p.x; ly = p.y;
+  clearTimeout(autoTimer); autoTimer = setTimeout(runInference, 500);
+});
+canvas.addEventListener('mouseup', () => drawing = false);
+canvas.addEventListener('mouseleave', () => drawing = false);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); drawing = true; const p = pos(e); lx = p.x; ly = p.y; }, { passive: false });
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault(); if (!drawing) return;
+  const p = pos(e);
+  ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(p.x, p.y); ctx.stroke();
+  lx = p.x; ly = p.y;
+  clearTimeout(autoTimer); autoTimer = setTimeout(runInference, 500);
+}, { passive: false });
+canvas.addEventListener('touchend', () => drawing = false);
+
+function clearCanvas() {
+  ctx.fillStyle = '#000'; ctx.fillRect(0,0,280,280);
+  document.getElementById('bigDigit').textContent = '?';
+  document.getElementById('predConf').textContent = '—';
+  document.getElementById('predSub').textContent = 'AWAITING INPUT';
+  setStatus('ready');
+  renderBars(new Array(10).fill(0), -1);
+}
+
+function getPixels() {
+  const tmp = document.createElement('canvas'); tmp.width = 28; tmp.height = 28;
+  const tc = tmp.getContext('2d');
+
+  // Find bounding box of drawn content
+  const full = ctx.getImageData(0, 0, 280, 280).data;
+  let minX=280, minY=280, maxX=0, maxY=0;
+  for (let y = 0; y < 280; y++) for (let x = 0; x < 280; x++) {
+    if (full[(y*280+x)*4] > 10) {
+      if (x < minX) minX = x; if (x > maxX) maxX = x;
+      if (y < minY) minY = y; if (y > maxY) maxY = y;
+    }
+  }
+
+  // Fallback if canvas is blank
+  if (maxX < minX || maxY < minY) return new Float32Array(784);
+
+  // Crop and center into 20x20, pad to 28x28 (MNIST style)
+  const w = maxX - minX + 1, h = maxY - minY + 1;
+  const scale = Math.min(20 / w, 20 / h);
+  const sw = Math.round(w * scale), sh = Math.round(h * scale);
+  const offX = Math.round((28 - sw) / 2), offY = Math.round((28 - sh) / 2);
+
+  tc.fillStyle = '#000'; tc.fillRect(0, 0, 28, 28);
+  tc.drawImage(canvas, minX, minY, w, h, offX, offY, sw, sh);
+
+  const d = tc.getImageData(0, 0, 28, 28).data;
+  const px = new Float32Array(784);
+  for (let i = 0; i < 784; i++) px[i] = d[i*4] / 255.0;
+  return px;
+}
+
+// --- Activations: ReLU for hidden layers, softmax across the output layer ---
+function relu(z) { return Math.max(0, z); }
+
+function softmax(arr) {
+  const max = Math.max(...arr);
+  const exps = arr.map(v => Math.exp(v - max));
+  const sum = exps.reduce((a, b) => a + b, 0);
+  return exps.map(v => v / sum);
+}
+
+// activation is applied per-neuron; pass null to get raw logits (needed before softmax,
+// since softmax must see the whole output vector at once, not one neuron at a time)
+function layerForward(inp, W, b, inSize, outSize, activation) {
+  const out = new Float32Array(outSize);
+  for (let j = 0; j < outSize; j++) {
+    let s = b[j];
+    for (let i = 0; i < inSize; i++) s += inp[i] * W[i * outSize + j];
+    out[j] = activation ? activation(s) : s;
+  }
+  return out;
+}
+
+function forward(x) {
+  const { W1, b1, W2, b2, W3, b3 } = window._w;
+  const a1 = layerForward(x, W1, b1, 784, 128, relu);
+  const a2 = layerForward(a1, W2, b2, 128, 64, relu);
+  const z3 = layerForward(a2, W3, b3, 64, 10, null); // raw logits, no activation yet
+  return softmax(Array.from(z3));
+}
+
+function renderBars(probs, topIdx) {
+  const html = probs.map((p, i) => `
+    <div class="bar-row">
+      <span class="d-lbl">${i}</span>
+      <div class="bar-track"><div class="bar-fill${i===topIdx?' top':''}" style="width:${(p*100).toFixed(1)}%"></div></div>
+      <span class="pct-lbl">${(p*100).toFixed(1)}%</span>
+    </div>`).join('');
+  document.getElementById('barsContainer').innerHTML = html;
+}
+
+function setStatus(msg) {
+  document.getElementById('statusBar').innerHTML = `STATUS &nbsp;→&nbsp; <span>${msg}</span>`;
+}
+
+async function runInference() {
+  if (!window._w) { setStatus('loading weights…'); await loadWeights(); if (!window._w) return; }
+  const x = getPixels();
+  if (!x.some(v => v > 0.05)) return;
+  const out = Array.from(forward(x));
+  const topIdx = out.indexOf(Math.max(...out));
+  const conf = (out[topIdx] * 100).toFixed(1);
+  document.getElementById('bigDigit').textContent = topIdx;
+  document.getElementById('predConf').textContent = conf + '%';
+  document.getElementById('predSub').textContent = 'CONFIDENCE';
+  setStatus(`classified as ${topIdx} · ${conf}% confidence`);
+  renderBars(out, topIdx);
+}
+
+async function loadWeights() {
+  try {
+    const r = await fetch('weights.json');
+    if (!r.ok) throw new Error('not found');
+    const d = await r.json();
+    window._w = {
+      W1: new Float32Array(d.W1.flat()), b1: new Float32Array(d.b1.flat()),
+      W2: new Float32Array(d.W2.flat()), b2: new Float32Array(d.b2.flat()),
+      W3: new Float32Array(d.W3.flat()), b3: new Float32Array(d.b3.flat()),
+    };
+    setStatus('weights loaded ✓');
+  } catch (e) {
+    setStatus('weights.json not found — place it next to index.html');
+  }
+}
+
+renderBars(new Array(10).fill(0), -1);
+loadWeights();
+</script>
+</body>
+</html>
