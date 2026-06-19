@@ -1,6 +1,6 @@
 ## **MLP Digit Classifier: From Theory to Interactive Web App**
 
-A complete implementation of a multilayer perceptron (MLP) neural network trained on MNIST, spanning from NumPy-only backpropagation to a gorgeous interactive web interface.
+A complete implementation of a multilayer perceptron (MLP) neural network trained on MNIST, spanning from NumPy-only backpropagation to a gorgeous interactive web interface [with a lot of AI assistance, don't call me a vibe coder please :( ]
 
 ### **Backend: Pure Python Neural Network** 
 - **3-layer MLP** with ReLU hidden activations and softmax output
